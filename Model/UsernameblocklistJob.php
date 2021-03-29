@@ -42,27 +42,62 @@ class UsernameblocklistJob extends CoJobBackend {
     $this->CoJob = $CoJob;
     $this->coId = $coId;
 
-    $url = 'https://raw.githubusercontent.com/marteinn/The-Big-Username-Blocklist/main/list_raw.txt';
+    $url = Configure::read('UsernameblocklistJob.blockListUrl');
+    $saveFileLoc = Configure::read('UsernameblocklistJob.blockListFile');
 
     $ch = curl_init($url);
 
-    $dir = '/srv/comanage-registry/local/';
-
-    $fileName = basename($url);
-
-    $saveFileLoc = $dir . $fileName;
-
     $fp = fopen($saveFileLoc, 'wb');
+    if(!$fp) {
+      $jobHistoryRecordKey = substr($saveFileLoc, 0, 64);
+      $jobHistoryComment = "Could not open $saveFileLoc for writing";
+      $jobHistoryComment = substr($jobHistoryComment, 0, 256);
 
-    curl_setopt($ch, CURLOPT_FILE, $fp);
-    curl_setopt($ch, CURLOPT_HEADER, 0);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+      $CoJob->CoJobHistoryRecord->record($CoJob->id, $jobHistoryRecordKey, $jobHistoryComment);
 
-    curl_exec($ch);
+      $CoJob->finish($CoJob->id, "", JobStatusEnum::Failed);
+
+      return;
+    } 
+
+    $ret = true;
+
+    $ret = $ret && curl_setopt($ch, CURLOPT_FILE, $fp);
+    $ret = $ret && curl_setopt($ch, CURLOPT_HEADER, 0);
+    if(!$ret) {
+      $jobHistoryRecordKey = substr($saveFileLoc, 0, 64);
+      $jobHistoryComment = "Error setting cURL options";
+      $jobHistoryComment = substr($jobHistoryComment, 0, 256);
+
+      $CoJob->CoJobHistoryRecord->record($CoJob->id, $jobHistoryRecordKey, $jobHistoryComment);
+
+      $CoJob->finish($CoJob->id, "", JobStatusEnum::Failed);
+
+      return;
+    } 
+
+    $ret = curl_exec($ch);
+    if(!$ret) {
+      $jobHistoryRecordKey = substr($saveFileLoc, 0, 64);
+      $jobHistoryComment = "Error executing cURL session";
+      $jobHistoryComment = substr($jobHistoryComment, 0, 256);
+
+      $CoJob->CoJobHistoryRecord->record($CoJob->id, $jobHistoryRecordKey, $jobHistoryComment);
+
+      $CoJob->finish($CoJob->id, "", JobStatusEnum::Failed);
+
+      return;
+    } 
 
     curl_close($ch);
 
     fclose($fp);
+
+    $jobHistoryRecordKey = substr($saveFileLoc, 0, 64);
+    $jobHistoryComment = "Downloaded URL " . $url;
+    $jobHistoryComment = substr($jobHistoryComment, 0, 256);
+
+    $CoJob->CoJobHistoryRecord->record($CoJob->id, $jobHistoryRecordKey, $jobHistoryComment);
 
     $CoJob->finish($CoJob->id, "", JobStatusEnum::Complete);
   }
