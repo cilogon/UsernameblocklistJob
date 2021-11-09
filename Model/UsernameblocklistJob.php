@@ -103,6 +103,18 @@ class UsernameblocklistJob extends CoJobBackend {
   }
 
   /**
+   * @since  COmanage Registry v4.0.0
+   * @return Array Array of supported parameters.
+   */
+  public function getAvailableJobs() {
+    $availableJobs = array();
+
+    $availableJobs['Usernameblocklist'] = "Download the username block list";
+
+    return $availableJobs;
+  }
+
+  /**
    * Obtain the list of parameters supported by this Job.
    *
    * @since  COmanage Registry v3.3.0
